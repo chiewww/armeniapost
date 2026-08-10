@@ -269,12 +269,6 @@ def process():
 def write_output(results):
     """Write country names and actual tariffs to output.txt."""
 
-    now = datetime.now(
-        timezone.utc
-    ).strftime(
-        "%Y-%m-%d %H:%M:%S UTC"
-    )
-
     lines = []
 
     lines.append(
