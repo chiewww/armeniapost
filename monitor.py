@@ -286,9 +286,6 @@ def write_output(results):
         "Configuration: "
         "International / Postcard / Ordinary / 10 g"
     )
-    lines.append(
-        f"Checked: {now}"
-    )
     lines.append("")
     lines.append(
         "POSTCARD TARIFFS"
