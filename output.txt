@@ -1,7 +1,6 @@
 ARMENIAPOST POSTCARD TARIFF MONITOR
 
 Configuration: International / Postcard / Ordinary / 10 g
-Checked: 2026-08-10 07:04:57 UTC
 
 POSTCARD TARIFFS
 ================
