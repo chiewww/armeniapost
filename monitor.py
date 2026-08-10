@@ -533,7 +533,6 @@ def main():
 
     print(f"Wrote {OUTPUT_FILE}")
 
-
 if __name__ == "__main__":
     main()
 ```
