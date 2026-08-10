@@ -1,7 +1,6 @@
+```python
 #!/usr/bin/env python3
 
-import json
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,10 +14,12 @@ PAGE_URL = f"{BASE_URL}/page/91"
 POSTAL_CALCULATOR_URL = f"{BASE_URL}/postalCalculator"
 ADDITIONAL_TARIFFS_URL = f"{BASE_URL}/postalAdditionalTariffs"
 
+
 # Haypost:
 # International = local=false
 # Postcard = postal_id 12
 # Ordinary = postal_simple = category 1
+
 LOCAL = False
 POSTAL_ID = 12
 POSTAL_CATEGORY = 1
@@ -48,18 +49,19 @@ def get_json(url, params=None):
 
 
 def clean_name(value):
+    """
+    Keep Haypost's Armenian country spelling exactly as supplied,
+    while removing accidental leading/trailing whitespace.
+    """
     if value is None:
         return ""
 
-    # Remove accidental leading/trailing whitespace while preserving
-    # the Armenian spelling used by Haypost.
     return str(value).strip()
 
 
 def get_countries():
     """
-    Fetch page 91 and return the countries exactly as supplied
-    by Haypost, including their IDs and regions.
+    Fetch page 91 and return the countries supplied by Haypost.
     """
     data = get_json(PAGE_URL, params={"lng": "am"})
 
@@ -69,7 +71,9 @@ def get_countries():
     )
 
     if not isinstance(countries, list):
-        raise RuntimeError("Could not find module.countries in page/91 response")
+        raise RuntimeError(
+            "Could not find module.countries in page/91 response"
+        )
 
     return countries
 
@@ -77,10 +81,11 @@ def get_countries():
 def get_region_id(country):
     """
     Haypost currently has regions for only a small number of countries.
-    For Russia we explicitly select Moscow as required.
 
-    For other countries, if Haypost supplies regions, we do not
-    automatically choose one.
+    For Russia we explicitly select Moscow because the calculator
+    requires a region for the Moscow tariff.
+
+    For other countries, do not automatically select a region.
     """
     country_id = country.get("id")
 
@@ -108,25 +113,23 @@ def get_postal_calculator(country):
     if region_id is not None:
         params["region_id"] = region_id
 
-    return get_json(POSTAL_CALCULATOR_URL, params=params)
+    return get_json(
+        POSTAL_CALCULATOR_URL,
+        params=params,
+    )
 
 
 def calculate_tariff(calculator):
     """
     Reproduce the relevant part of Haypost's FinalInfo logic.
 
-    For the requested Standard + Ordinary configuration:
+    Priority:
 
-    - use postal_standard if it exists;
-    - otherwise use postal_trajectory if it exists;
-    - otherwise use postal_simple if available;
-    - otherwise use postal_ordered.
-
-    The actual Haypost UI has some state-dependent behavior, so
-    this follows the available tariff data rather than assuming
-    every country has every tariff category.
+    1. postal_standard
+    2. postal_trajectory
+    3. postal_simple
+    4. postal_ordered
     """
-
     standard = calculator.get("postal_standard") or []
     trajectory = calculator.get("postal_trajectory") or []
     simple = calculator.get("postal_simple") or []
@@ -135,12 +138,15 @@ def calculate_tariff(calculator):
     if standard:
         tariff_list = standard
         tariff_type = "postal_standard"
+
     elif trajectory:
         tariff_list = trajectory
         tariff_type = "postal_trajectory"
+
     elif simple:
         tariff_list = simple
         tariff_type = "postal_simple"
+
     else:
         tariff_list = ordered
         tariff_type = "postal_ordered"
@@ -156,7 +162,7 @@ def calculate_tariff(calculator):
 
 def calculate_from_tariff_list(tariffs):
     """
-    Calculate the Haypost tariff for 10 grams.
+    Calculate the Haypost tariff for the requested weight.
 
     This follows the weight logic visible in FinalInfo.js.
     """
@@ -165,7 +171,7 @@ def calculate_from_tariff_list(tariffs):
 
     weight = WEIGHT_GRAMS
 
-    # Normal weight range.
+    # Normal weight ranges.
     for item in tariffs:
         min_weight = item.get("min_weight")
         max_weight = item.get("max_weight")
@@ -173,6 +179,7 @@ def calculate_from_tariff_list(tariffs):
         if min_weight is None or max_weight is None:
             continue
 
+        # Unlimited / special tariff.
         if min_weight == -1 and max_weight == -1:
             return item.get("price")
 
@@ -227,13 +234,17 @@ def get_additional_tariffs():
         "postal_category": POSTAL_CATEGORY,
     }
 
-    return get_json(ADDITIONAL_TARIFFS_URL, params=params)
+    return get_json(
+        ADDITIONAL_TARIFFS_URL,
+        params=params,
+    )
 
 
 def find_zero_insert_value(data):
     """
-    Find an additional-service entry corresponding to
-    "Առաքանու ներդիրի արժեք" and determine whether its value is zero.
+    Find an additional-service entry corresponding to:
+
+        "Առաքանու ներդիրի արժեք"
 
     Haypost's frontend displays an additional service using:
 
@@ -241,9 +252,8 @@ def find_zero_insert_value(data):
         e.price || 0 === e.price ? e.price : e.value
         e.percent ? "%" : "AMD"
 
-    The API response shape is therefore handled flexibly here.
+    The API response is therefore handled flexibly.
     """
-
     target_phrases = [
         "Առաքանու ներդիրի արժեք",
         "Առաքանու ներդիրի",
@@ -253,7 +263,6 @@ def find_zero_insert_value(data):
 
     def walk(value):
         if isinstance(value, dict):
-            # Check whether this object itself looks like the service.
             label_values = []
 
             for key in (
@@ -274,8 +283,7 @@ def find_zero_insert_value(data):
             ):
                 raw_value = None
 
-                # This mirrors the frontend expression:
-                # e.price || 0 === e.price ? e.price : e.value
+                # Mirrors the frontend's selection of price/value.
                 if "price" in value:
                     raw_value = value["price"]
                 elif "value" in value:
@@ -301,7 +309,6 @@ def find_zero_insert_value(data):
     if not matches:
         return None
 
-    # Prefer an exact label match.
     exact = [
         item
         for item in matches
@@ -346,18 +353,20 @@ def process():
         raise RuntimeError("Haypost returned no countries")
 
     additional_tariffs = get_additional_tariffs()
-    additional_service = find_zero_insert_value(additional_tariffs)
+    additional_service = find_zero_insert_value(
+        additional_tariffs
+    )
 
     if additional_service is None:
         print(
-            "WARNING: Could not find 'Առաքանու ներդիրի արժեք' "
+            "WARNING: Could not find "
+            "'Առաքանու ներդիրի արժեք' "
             "in postalAdditionalTariffs response.",
             file=sys.stderr,
         )
 
     country_names = []
     zero_countries = []
-
     results = []
 
     for country in countries:
@@ -383,32 +392,38 @@ def process():
                 }
             )
 
-            # The country appearing in Haypost's country dropdown
-            # is the first monitored list.
+            # Keep the Armenian name exactly as Haypost provides it.
             country_names.append(name)
 
         except Exception as exc:
             print(
-                f"WARNING: Failed for {name} ({country_id}): {exc}",
+                f"WARNING: Failed for {name} "
+                f"({country_id}): {exc}",
                 file=sys.stderr,
             )
 
-    # The additional tariff endpoint is not country-specific according
-    # to the frontend code. If the service itself is 0 AMD, the list
-    # applies to the configuration returned by that endpoint.
+    # The additional-tariff endpoint is not country-specific
+    # according to the frontend code.
     #
-    # However, to avoid incorrectly declaring every country zero when
-    # the endpoint is a global configuration, we currently record the
-    # service state separately.
+    # Therefore, if the returned service is 0 AMD, we record
+    # that separately rather than pretending the API returned
+    # a country-specific zero tariff.
     if additional_service is not None:
-        additional_zero = is_zero(additional_service["value"])
+        additional_zero = is_zero(
+            additional_service["value"]
+        )
     else:
         additional_zero = False
 
     if additional_zero:
         zero_countries = country_names.copy()
 
-    return country_names, zero_countries, results, additional_service
+    return (
+        country_names,
+        zero_countries,
+        results,
+        additional_service,
+    )
 
 
 def write_output(
@@ -423,17 +438,20 @@ def write_output(
 
     lines = []
 
-    lines.append("HAYPOST POSTAL CALCULATOR MONITOR")
+    lines.append(
+        "HAYPOST POSTAL CALCULATOR MONITOR"
+    )
     lines.append("")
     lines.append(
-        "Configuration: International / Postcard / 10 g / "
+        "Configuration: "
+        "International / Postcard / 10 g / "
         "Standard / Ordinary"
     )
     lines.append(f"Checked: {now}")
     lines.append("")
 
-    lines.append("ԵՐԿԻՐ")
-    lines.append("=====")
+    lines.append("COUNTRIES")
+    lines.append("=========")
 
     for name in country_names:
         lines.append(name)
@@ -455,7 +473,9 @@ def write_output(
     lines.append("")
 
     if additional_service is not None:
-        lines.append("Additional tariff detected:")
+        lines.append(
+            "Additional tariff detected:"
+        )
         lines.append(
             f"Label: {additional_service['label']}"
         )
@@ -464,13 +484,16 @@ def write_output(
         )
     else:
         lines.append(
-            'WARNING: "Առաքանու ներդիրի արժեք" was not found '
-            "in the additional-tariff response."
+            'WARNING: "Առաքանու ներդիրի արժեք" '
+            "was not found in the "
+            "additional-tariff response."
         )
 
     lines.append("")
     lines.append("Russia region:")
-    lines.append("Ռուսաստան → Մոսկվա (region_id=14)")
+    lines.append(
+        "Ռուսաստան → Մոսկվա (region_id=14)"
+    )
     lines.append("")
 
     OUTPUT_FILE.write_text(
@@ -513,3 +536,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
