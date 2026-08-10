@@ -1,83 +1,37 @@
 # armeniapost
 
-Daily monitoring of HayPost international postcard prices.
+Daily monitoring of the Haypost international postal calculator.
 
-## Configuration
+## Monitored configuration
 
-The monitor checks:
+- International (`local=false`)
+- Postcard (`postal_id=12`)
+- Weight: 10 g
+- Standard
+- Ordinary (`postal_simple`)
+- Armenian country names
 
-- International
-- Postcard
-- 10 grams
-- HayPost's standard/simple/trajectory/ordered tariff logic
+Russia is checked using:
 
-Russia uses:
+- Country: Russia (`country_id=86`)
+- Region: Moscow (`region_id=14`)
 
-- Russia: country ID 86
-- Moscow: region ID 14
+## APIs
 
-Other countries use no region.
+The monitor uses the Haypost API directly:
 
-## Output
+### Country list
 
-The GitHub Action generates:
+`GET https://api.haypost.am/page/91?lng=am`
 
-### output/countries.txt
+### Postal calculator
 
-All countries currently returned by HayPost:
+`GET https://api.haypost.am/postalCalculator`
 
-    Armenian name — English name
+Parameters:
 
-### output/zero_amd.txt
-
-Countries whose calculated 10g postcard price is:
-
-    0 AMD
-
-## HayPost API
-
-Country information:
-
-https://api.haypost.am/page/91?lng=am
-
-Calculator:
-
-https://api.haypost.am/postalCalculator
-
-Postcard:
-
-    postal_id=12
-
-International:
-
-    local=false
-
-## Translation
-
-HayPost provides the country names in Armenian.
-
-English names are maintained locally in:
-
-    country_translations.json
-
-Translations are keyed by HayPost country ID.
-
-If HayPost adds a new country, the monitor stops and reports the missing ID rather than silently producing an incorrect translation.
-
-## GitHub Actions
-
-The monitor runs automatically once per day.
-
-It can also be run manually from:
-
-GitHub → Actions → HayPost daily monitor → Run workflow
-
-## changedetection.io
-
-After the first successful GitHub Action run, configure changedetection.io to monitor the raw versions of:
-
-    output/countries.txt
-
-and:
-
-    output/zero_amd.txt
+```text
+postal_id=12
+local=false
+country_id=<country id>
+region_id=<region id when applicable>
