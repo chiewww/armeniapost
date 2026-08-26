@@ -2,7 +2,7 @@ ARMENIAPOST POSTCARD TARIFF MONITOR
 
 Configuration: International / Postcard / Ordinary
 Weight: 10 g
-Checked: 2026-08-25 06:24:47 UTC
+Checked: 2026-08-26 06:27:16 UTC
 
 0 AMD COUNTRIES
 ===============
